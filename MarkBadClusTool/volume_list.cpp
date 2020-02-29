@@ -208,6 +208,7 @@ VOID CVolumeList::ReleaseAllResources()
 {
     PLIST_ENTRY entry = NULL;
 	//lcq 2020-0229 bug unfix 缓解措施
+	//这个BUG暂时不修复
 	if (m_VolumeCount == 0) return;
 
     for( entry = RemoveHeadList( &m_VolumeListHead );
@@ -326,6 +327,7 @@ DWORD CVolumeList::SearchGPTVolume(DWORD BaseSector, MBR_SECTOR  mbrSector)
 				printf("\n该分区起始扇区号为%I64X\n", uint8to64(the_partition_tables[j].pation_start));
 
 				node->StartSector.QuadPart = uint8to64(the_partition_tables[j].pation_start);
+				//一定要+1，否则分区对不上
 				node->TotalSectors.QuadPart = uint8to64(the_partition_tables[j].pation_end) - uint8to64(the_partition_tables[j].pation_start) + 1;
 
 				sprintf_s(buffer, "Volume%d", m_VolumeCount);
