@@ -21,4 +21,4 @@
 // TODO: 在此处引用程序需要的其他头文件
 
 #define MAINVERSION 0
-#define SUBVERSION 1
+#define SUBVERSION 2

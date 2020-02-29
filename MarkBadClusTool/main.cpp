@@ -54,10 +54,13 @@ VOID ShowStateMessage( DWORD code,DWORD_PTR para1,DWORD_PTR para2 )
 void ShowLogo()
 {
     printf("                     分区坏簇标记工具 V%d.%d\n",MAINVERSION,SUBVERSION );
-    char message[]="================================================================================\
+    char message[]="================================================================================\n\
 注意：1 本软件仍在测试阶断，表现可能不稳定，请不要对存放重要数据的硬盘进行操作。\n\
       2 目前仅支持NTFS类型的分区！\n\n\
       3 对于由本软件造成的任何损失，作者不负任何法律责任！\n\n\
+      4 每次操作均会清除原来的坏扇区日志，清注意备份！\n\
+      5 初步支持GPT磁盘，可能有问题。\n\
+      6 GPT下所有可见分区均默认为NTFS，所以务必保证操作分区为NTFS。\n\
 联系作者：hackerlzc@126.com\n\
 看雪ID：  hackerlzc\n\
 ================================================================================\n";
@@ -228,7 +231,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
             pController->PrepareUpdateBadBlockList();
             LONGLONG start=-1,len =1000;
-            printf("请输入坏扇区扩展量(建议值：%lld)：",p->sectorsPerCylinder.QuadPart/2);
+            printf("请输入坏扇区扩展量(建议值：%lld,这里为坏扇区前后扩展数据，最小单位为一个簇/512大小)：",p->sectorsPerCylinder.QuadPart/2);
             scanf_s("%lld",&len );
             if( len <= 0 || len >= p2->TotalSectors.QuadPart/2 )
             {
@@ -259,14 +262,14 @@ int _tmain(int argc, _TCHAR* argv[])
             
             pController->PrepareUpdateBadBlockList();
             LONGLONG start=-1,len =1000;
-            printf("请输入坏扇区扩展量(建议值：%lld)：",p->sectorsPerCylinder.QuadPart/2);
+            printf("请输入坏扇区扩展量(建议值：%lld,这里为坏扇区前后扩展数据，最小单位为一个簇/512大小)：",p->sectorsPerCylinder.QuadPart/2);
             scanf_s("%lld",&len );
             if( len <= 0 || len >= p2->TotalSectors.QuadPart/2 )
             {
                 printf("输入值不合适，程序即将退出！\n");
                 goto lab_exit;
             }
-            printf("请输入坏扇区表（-1表示结束):\n");
+            printf("请输入坏扇区表（-1表示结束,地址为磁盘LBA地址):\n");
             scanf_s("%lld",&start);
             while( start != -1 )
             {
