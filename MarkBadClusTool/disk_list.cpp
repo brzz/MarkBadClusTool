@@ -184,6 +184,7 @@ VOID CDiskList::InitDiskList()
                     pDiskDevice->sizeInSectors.QuadPart = diskGeom.Cylinders.QuadPart
                         * diskGeom.TracksPerCylinder
                         * diskGeom.SectorsPerTrack;
+					pDiskDevice->BytesPerSector = diskGeom.BytesPerSector;
                     pDiskDevice->sectorsPerCylinder.QuadPart = 
                           diskGeom.TracksPerCylinder * diskGeom.SectorsPerTrack;
                 }

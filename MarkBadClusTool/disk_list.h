@@ -25,6 +25,7 @@ typedef struct _DISK_DEVICE
     WORD        reserved;           //保留
     LARGE_INTEGER sizeInSectors;    //扇区数表示的容量
     LARGE_INTEGER sectorsPerCylinder;//每柱面扇区数
+	WORD        BytesPerSector;         //每个扇区的大小bytes
     BYTE        *name;              //系统对磁盘的描述信息
     BYTE        *path;              //磁盘设备路径，用于打开磁盘设备
 }DISK_DEVICE,*PDISK_DEVICE;

@@ -59,8 +59,8 @@ void ShowLogo()
       2 目前仅支持NTFS类型的分区！\n\n\
       3 对于由本软件造成的任何损失，作者不负任何法律责任！\n\n\
       4 每次操作均会清除原来的坏扇区日志，清注意备份！\n\
-      5 初步支持GPT磁盘，可能有问题。\n\
-      6 GPT下所有可见分区均默认为NTFS，所以务必保证操作分区为NTFS。\n\
+      5 初步支持GPT磁盘，可能有问题-lcq。\n\
+      6 GPT下所有可见分区均假设为NTFS，所以务必保证操作分区为NTFS。\n\
 联系作者：hackerlzc@126.com\n\
 看雪ID：  hackerlzc\n\
 ================================================================================\n";
@@ -117,12 +117,17 @@ int _tmain(int argc, _TCHAR* argv[])
     printf("%-20s%-30s%-20s\n","设备ID","设备名称","容量");
     while( p )
     {
-        printf("%-20d%-30s%lld GB\n",p->index,p->name,p->sizeInSectors.QuadPart /2 /1024 /1024);
+        printf("%-20d%-30s%lld GB\n",p->index,p->name,p->sizeInSectors.QuadPart * p->BytesPerSector /1024 /1024 /1024);
         p = diskList.GetNextDisk( p );
     }
     printf("\n请输入设备ID:");
     scanf_s("%d",&id);
     diskList.GetDiskByIndex( id,&p );
+	if (p->BytesPerSector != 512)
+	{
+		printf("仅支持512扇区硬盘!\r\n");
+		goto lab_exit;
+	}
     pVolumeList = new CVolumeList( (LPSTR)p->path,p->index );
     PVOLUME_NODE    p2 = pVolumeList->GetFirstVolume();
     if(p2 == NULL)
