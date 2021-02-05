@@ -58,7 +58,9 @@ protected:
     BOOL CopyBlock( IN HANDLE hDisk,
                     IN ULONGLONG SourceSector,
                     IN ULONGLONG DestinationSector,
-                    IN ULONGLONG NumberOfSectors );
+                    IN ULONGLONG NumberOfSectors,
+	                DWORD  SectorSzie
+                    );
 };
 
 #endif

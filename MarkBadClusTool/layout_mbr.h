@@ -133,7 +133,7 @@ typedef struct _EBR_SECTOR
     WORD end_flag;                  /*引导扇区结束标志，恒为0xAA55(小端格式*/
 }EBR_SECTOR,*PEBR_SECTOR;
 
-#define MBR_SECTOR_SIZE 512         /*是指MBR分区管理中扇区大小为512字节*/
+//#define MBR_SECTOR_SIZE 512         /*是指MBR分区管理中扇区大小为512字节*/
 
 
 #pragma pack(pop)

@@ -99,7 +99,8 @@ void ShowLogo()
       4 每次操作均会清除原来的坏扇区日志，清注意备份！\n\
       5 初步支持GPT磁盘，可能有问题-lcq。\n\
       6 GPT下所有可见分区均假设为NTFS，所以务必保证操作分区为NTFS。\n\
-      7 需要有盘符才能更新，原因不知道\n\
+      7 需要有盘符才能操作，原因不知道\n\
+      8 建议用空磁盘进行操作，意外断电会损失数据\n\
 联系作者：hackerlzc@126.com\n\
 看雪ID：  hackerlzc\n\
 ================================================================================\n";
@@ -178,7 +179,7 @@ int _tmain(int argc, _TCHAR* argv[])
     printf("\n搜索到的分区列表：\n");
     while( p2 )
     {
-        printf("%-15s%-15s%-15s%-15s%-15s\n","分区ID","起始扇区","扇区数","盘符","文件系统");
+        printf("%-15s%-15s%-15s%-15s%-15s\n","分区ID","起始扇区(LBA)","扇区数(LBA)","盘符","文件系统");
         printf("%-15d%-15lld%-15lld%-15c%s\n",p2->Index,
             p2->StartSector.QuadPart,
             p2->TotalSectors.QuadPart,
@@ -246,12 +247,15 @@ int _tmain(int argc, _TCHAR* argv[])
     pController->RegisterMessageCallBack( (MESSAGE_CALLBACK_FUNC)ShowStateMessage );
 
     printf("当前文件系统已经标记的坏扇区列表:\n");
-    printf("%-20s%-20s\n","起始扇区","扇区数");
+    printf("%-20s%-20s%-20s\n","起始扇区(LBA)","起始扇区(LCN)","扇区数");
     for( PBLOCK_DESCRIPTOR p = pController->GetFirstBadBlock();
         p != NULL;
         p = pController->GetNextBadBlock( p ))
     {
-        printf("%-20lld%-20lld\n",p->StartSector.QuadPart,p->TotalSectors.QuadPart );
+        printf("%-20lld%-20lld%-20lld\n", 
+			p->StartSector.QuadPart + p2->StartSector.QuadPart 
+			,p->StartSector.QuadPart
+			,p->TotalSectors.QuadPart );
     }
 
     if(pController->ProbeForRepair())
@@ -275,7 +279,8 @@ int _tmain(int argc, _TCHAR* argv[])
 
             pController->PrepareUpdateBadBlockList();
             LONGLONG start=-1,len =1000;
-            printf("请输入坏扇区扩展量(建议值：%lld,这里为坏扇区前后扩展数据，最小单位为一个簇/512大小)：",p->sectorsPerCylinder.QuadPart/2);
+			//,p->sectorsPerCylinder.QuadPart/2
+            printf("请输入坏扇区扩展量(这里为坏扇区前后扩展扇区大小,最小扇区单位为一个逻辑簇，比如4K簇512E的硬盘输入为8的整数)："); 
             scanf_s("%lld",&len );
             if( len <= 0 || len >= p2->TotalSectors.QuadPart/2 )
             {
@@ -306,7 +311,7 @@ int _tmain(int argc, _TCHAR* argv[])
             
             pController->PrepareUpdateBadBlockList();
             LONGLONG start=-1,len =1000;
-            printf("请输入坏扇区扩展量(建议值：%lld,这里为坏扇区前后扩展簇大小)：",p->sectorsPerCylinder.QuadPart/2);
+            printf("请输入坏扇区扩展量(这里为坏扇区前后扩展扇区大小,最小扇区单位为一个逻辑簇，比如4K簇512E的硬盘输入为8的整数)：");
             scanf_s("%lld",&len );
             if( len <= 0 || len >= p2->TotalSectors.QuadPart/2 )
             {

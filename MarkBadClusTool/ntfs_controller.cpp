@@ -1091,7 +1091,7 @@ BOOL CNtfsController::CopyLogicalClusterBlock( LONGLONG SourceLcn,LONGLONG DestL
     bOk = CopyBlock( m_hDisk,
         m_VolumeStartSector.QuadPart + SourceLcn * m_BootSect.bpb.sectors_per_cluster,
         m_VolumeStartSector.QuadPart + DestLcn * m_BootSect.bpb.sectors_per_cluster,
-        NumberOfLcns * m_BootSect.bpb.sectors_per_cluster);
+        NumberOfLcns * m_BootSect.bpb.sectors_per_cluster, this->m_PhysicDiskSectorSize);
 
     return bOk;
 }

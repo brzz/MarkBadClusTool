@@ -311,7 +311,12 @@ BOOL CUtils::WriteSector(IN HANDLE hDisk,
 
 }
 
-BOOL CUtils::CopyBlock( HANDLE hDisk,ULONGLONG SourceSector,ULONGLONG DestinationSector,ULONGLONG NumberOfSectors)
+BOOL CUtils::CopyBlock(IN HANDLE hDisk,
+	IN ULONGLONG SourceSector,
+	IN ULONGLONG DestinationSector,
+	IN ULONGLONG NumberOfSectors,
+	DWORD  SectorSzie
+)
 /*++
 功能描述：复制数据块（单位：扇区）
 
@@ -326,7 +331,7 @@ BOOL CUtils::CopyBlock( HANDLE hDisk,ULONGLONG SourceSector,ULONGLONG Destinatio
 {
     BOOL bOk = TRUE;
     int max_sector_count = 10 * 2048;
-    LPBYTE buffer = (LPBYTE)malloc( max_sector_count * MBR_SECTOR_SIZE );//10MB
+    LPBYTE buffer = (LPBYTE)malloc( max_sector_count * SectorSzie);//10MB
     assert( buffer != NULL);
     DWORD   bytesOffsetLow,bytesOffsetHigh,retBytes;
     DWORD SectorNumberHigh,SectorNumberLow;
@@ -348,7 +353,7 @@ BOOL CUtils::CopyBlock( HANDLE hDisk,ULONGLONG SourceSector,ULONGLONG Destinatio
 
         bOk = ReadFile( hDisk,
                         buffer,
-                        max_sector_count * MBR_SECTOR_SIZE,
+                        max_sector_count * SectorSzie,
                         &retBytes,
                         NULL);
         if( !bOk)
@@ -369,7 +374,7 @@ BOOL CUtils::CopyBlock( HANDLE hDisk,ULONGLONG SourceSector,ULONGLONG Destinatio
         }
         bOk = WriteFile( hDisk,
             buffer,
-            max_sector_count * MBR_SECTOR_SIZE,
+            max_sector_count * SectorSzie,
             &retBytes,
             NULL);
         if( !bOk )
@@ -398,7 +403,7 @@ BOOL CUtils::CopyBlock( HANDLE hDisk,ULONGLONG SourceSector,ULONGLONG Destinatio
 
         bOk = ReadFile( hDisk,
                         buffer,
-                        (DWORD)NumberOfSectors * MBR_SECTOR_SIZE,
+                        (DWORD)NumberOfSectors * SectorSzie,
                         &retBytes,
                         NULL);
         if( !bOk)
@@ -419,7 +424,7 @@ BOOL CUtils::CopyBlock( HANDLE hDisk,ULONGLONG SourceSector,ULONGLONG Destinatio
         }
         bOk = WriteFile( hDisk,
             buffer,
-            (DWORD)NumberOfSectors * MBR_SECTOR_SIZE,
+            (DWORD)NumberOfSectors * SectorSzie,
             &retBytes,
             NULL);
         if( !bOk )

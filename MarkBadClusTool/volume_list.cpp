@@ -347,10 +347,10 @@ DWORD CVolumeList::SearchGPTVolume(PDISK_DEVICE pdisk, DWORD BaseSector, MBR_SEC
 				node->TypeName = "NTFS";
 				//搜索分区对应的盘符
 				node->VolumeLetter = '-';
-				for (CHAR letter = 'C'; letter <= 'Z'; letter++)
+				for (CHAR letter = 'A'; letter <= 'Z'; letter++)
 				{
 					if (m_tbl_VolumeOwnerDiskId[letter - 'A'] == m_DiskId &&
-						m_tbl_VolumeOffset[letter - 'A'] == node->StartSector.QuadPart*MBR_SECTOR_SIZE)
+						m_tbl_VolumeOffset[letter - 'A'] == node->StartSector.QuadPart * m_pdisk->BytesPerSector)
 					{
 						node->VolumeLetter = letter;
 						break;
