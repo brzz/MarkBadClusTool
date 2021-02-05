@@ -482,7 +482,7 @@ DWORD CVolumeList::SearchMbrVolume(PDISK_DEVICE pdisk, DWORD BaseSector, DWORD B
 				for (CHAR letter = 'A'; letter <= 'Z'; letter++)
 				{
 					if (m_tbl_VolumeOwnerDiskId[letter - 'A'] == m_DiskId &&
-						m_tbl_VolumeOffset[letter - 'A'] == node->StartSector.QuadPart*MBR_SECTOR_SIZE)
+						m_tbl_VolumeOffset[letter - 'A'] == node->StartSector.QuadPart * pdisk->BytesPerSector)
 					{
 						node->VolumeLetter = letter;
 						break;

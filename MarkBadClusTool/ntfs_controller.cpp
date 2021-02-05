@@ -3015,7 +3015,7 @@ BOOL CNtfsController::WriteMftRecord( IN LONGLONG RecordId,IN PVOID Buffer,IN DW
 				lcn * m_BootSect.bpb.sectors_per_cluster + offsetInSectors + i,
 				this->m_PhysicDiskSectorSize);
 			if (!bResult) {
-				printf("write failed!\n");
+				printf("write failed! Err:%d\n", GetLastError());
 				goto exit;
 			}
 		}
@@ -3042,7 +3042,7 @@ BOOL CNtfsController::WriteMftRecord( IN LONGLONG RecordId,IN PVOID Buffer,IN DW
 		bResult = WriteLogicalSector(tmpbuffer,
 			this->m_PhysicDiskSectorSize,
 			lcn,
-			512);
+			this->m_PhysicDiskSectorSize);
 		if (!bResult) {
 			printf("write failed! Err:%d\n", GetLastError());
 			goto exit;
