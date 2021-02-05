@@ -274,19 +274,17 @@ DWORD CVolumeList::SearchGPTVolume(PDISK_DEVICE pdisk, DWORD BaseSector, MBR_SEC
 
 	printf("\n\n-------------读取分区表项:-------------\n\n");
 	ULONGLONG baseaddr = (ULONGLONG)uint8to64(gptheader.pation_table_first);//GPT分区表起始位置
-
-
 	{
 		//准备处理卷信息
 		int entrynum = 0;
 		DWORD dwCB;
 		LARGE_INTEGER offset;
-		partition_table the_partition_tables[4];
-		ULONGLONG nextaddr = ((ULONGLONG)0 + (ULONGLONG)baseaddr) *(ULONGLONG)512;
+		partition_table the_partition_tables[4*8]; //512只有前4个可用，4K后面也用
+		ULONGLONG nextaddr = ((ULONGLONG)0 + (ULONGLONG)baseaddr) *(ULONGLONG)pdisk->BytesPerSector;
 		offset.QuadPart = nextaddr;//找到下一个要读取的地址
 		SetFilePointer(m_hDisk, offset.LowPart, &offset.HighPart, FILE_BEGIN);//设置偏移准备读取
 																			  //ReadFile(hDevice, &the_partition_tables, 512, &dwCB, NULL);
-		if (!ReadFile(m_hDisk, &the_partition_tables, 512, &dwCB, NULL))
+		if (!ReadFile(m_hDisk, &the_partition_tables, pdisk->BytesPerSector, &dwCB, NULL))
 		{
 			printf("读取错误");
 			CloseHandle(m_hDisk);
@@ -297,17 +295,17 @@ DWORD CVolumeList::SearchGPTVolume(PDISK_DEVICE pdisk, DWORD BaseSector, MBR_SEC
 		int j = 0;//如果j=4，重新读，因为某种限制，一次必须读512字节整数倍
 		while (endflag > 0) {
 			//printf("\n第%d个分区表:\n", ++entrynum);
-			if (j == 4)
+			if (j == pdisk->BytesPerSector/sizeof(partition_table))
 			{
-				nextaddr = nextaddr + (ULONGLONG)512;
+				nextaddr = nextaddr + (ULONGLONG)pdisk->BytesPerSector;
 				offset.QuadPart = nextaddr;//找到下一个要读取的地址
 				SetFilePointer(m_hDisk, offset.LowPart, &offset.HighPart, FILE_BEGIN);//设置偏移准备读取
 																					  //if (GetLastError())
 																					  //{
 																					  //	return 0;
 																					  //}
-				memset(&the_partition_tables, 0, 512);
-				ReadFile(m_hDisk, &the_partition_tables, 512, &dwCB, NULL);
+				memset(&the_partition_tables, 0, pdisk->BytesPerSector);
+				ReadFile(m_hDisk, &the_partition_tables, pdisk->BytesPerSector, &dwCB, NULL);
 				j = 0;
 			}
 
