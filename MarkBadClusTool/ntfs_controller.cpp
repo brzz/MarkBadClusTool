@@ -2870,6 +2870,7 @@ BOOL CNtfsController::ReadMftRecord( IN LONGLONG RecordId,OUT PVOID Buffer,IN DW
 		vcn = m_MftRecordLength / m_BootSect.bpb.bytes_per_sector * RecordId
 			/ m_BootSect.bpb.sectors_per_cluster;
 
+		//计算文件记录扇区相对所在簇的偏移量（单位为扇区）
 		offsetInSectors = RecordId                                           //文件记录号
 			* (m_MftRecordLength / m_BootSect.bpb.bytes_per_sector) //每文件记录扇区数
 			% m_BootSect.bpb.sectors_per_cluster;                   //每簇扇区数
@@ -2969,8 +2970,28 @@ BOOL CNtfsController::WriteMftRecord( IN LONGLONG RecordId,IN PVOID Buffer,IN DW
     }
 
     //计算RecordId对应文件记录所在的VCN
-    LONGLONG    vcn = m_MftRecordLength / m_BootSect.bpb.bytes_per_sector * RecordId
-        / m_BootSect.bpb.sectors_per_cluster;
+	//lcq note:一个文件记录可以有多个扇区，同样一个扇区也可以存储多个文件记录
+
+	//RecordId -> VCN
+	LONGLONG    vcn = -1;
+	LONGLONG   offsetInSectors = -1;
+	if (m_MftRecordLength >= m_BootSect.bpb.bytes_per_sector)
+	{
+		//比如在512N硬盘中 一个文件记录是1024字节，占用2个512字节的扇区。
+		vcn = m_MftRecordLength / m_BootSect.bpb.bytes_per_sector * RecordId
+			/ m_BootSect.bpb.sectors_per_cluster;
+
+		//计算文件记录扇区相对所在簇的偏移量（单位为扇区）
+		offsetInSectors = RecordId                                           //文件记录号
+			* (m_MftRecordLength / m_BootSect.bpb.bytes_per_sector) //每文件记录扇区数
+			% m_BootSect.bpb.sectors_per_cluster;                   //每簇扇区数
+	}
+	else
+	{
+		//在4KN硬盘中，一个扇区可以存储4个1024字节的文件记录。
+		vcn = (RecordId / (m_BootSect.bpb.bytes_per_sector / m_MftRecordLength)) / m_BootSect.bpb.sectors_per_cluster;
+		offsetInSectors = (RecordId % (m_BootSect.bpb.bytes_per_sector / m_MftRecordLength));
+	}
 
     //转换为LCN,出错返回失败
     LONGLONG    lcn = VcnToLcn( vcn,m_MftDataRuns,m_MftDataRunsLength );
@@ -2981,23 +3002,55 @@ BOOL CNtfsController::WriteMftRecord( IN LONGLONG RecordId,IN PVOID Buffer,IN DW
         goto exit;
     }
 
-    //计算文件记录扇区相对所在簇的偏移量（单位为扇区）
-    LONGLONG   offsetInSectors = RecordId                                           //文件记录号
-        * (m_MftRecordLength / m_BootSect.bpb.bytes_per_sector) //每文件记录扇区数
-        % m_BootSect.bpb.sectors_per_cluster;                   //每簇扇区数
-
     bResult = TRUE;
-    for( DWORD i = 0;i < (m_MftRecordLength / m_BootSect.bpb.bytes_per_sector);i++)
-    {
-        bResult = WriteLogicalSector( (LPVOID)((DWORD_PTR)Buffer + i * m_BootSect.bpb.bytes_per_sector),
-            m_BootSect.bpb.bytes_per_sector,
-            lcn * m_BootSect.bpb.sectors_per_cluster + offsetInSectors + i ,
+
+	//写入数据
+	if (m_MftRecordLength >= m_BootSect.bpb.bytes_per_sector)
+	{
+		//一个数据位于多个扇区
+		for (DWORD i = 0; i < (m_MftRecordLength / m_BootSect.bpb.bytes_per_sector); i++)
+		{
+			bResult = WriteLogicalSector((LPVOID)((DWORD_PTR)Buffer + i * m_BootSect.bpb.bytes_per_sector),
+				m_BootSect.bpb.bytes_per_sector,
+				lcn * m_BootSect.bpb.sectors_per_cluster + offsetInSectors + i,
+				this->m_PhysicDiskSectorSize);
+			if (!bResult) {
+				printf("write failed!\n");
+				goto exit;
+			}
+		}
+	}
+	else
+	{
+		//一个扇区存储多个数据
+		//首先读取出整个扇区，然后修改其中数据，最后写回整个扇区
+
+		LPVOID  tmpbuffer = malloc(this->m_PhysicDiskSectorSize);
+		if (tmpbuffer == NULL) return 0;
+
+		bResult = ReadLogicalSector(tmpbuffer, this->m_PhysicDiskSectorSize, lcn,
 			this->m_PhysicDiskSectorSize);
-        if( !bResult ){
-            printf("write failed!\n");
-            goto exit;
-        }
-    }
+
+		if (!bResult) {
+			printf("write: read failed!\n");
+			goto exit;
+		}
+
+		memcpy_s(((BYTE*)tmpbuffer + offsetInSectors*m_MftRecordLength), m_MftRecordLength,
+			Buffer, m_MftRecordLength);
+
+		bResult = WriteLogicalSector(tmpbuffer,
+			this->m_PhysicDiskSectorSize,
+			lcn,
+			512);
+		if (!bResult) {
+			printf("write failed! Err:%d\n", GetLastError());
+			goto exit;
+		}
+
+		free(tmpbuffer);
+	}
+
 
 exit:
     return bResult;

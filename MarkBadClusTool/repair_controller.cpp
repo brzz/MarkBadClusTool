@@ -410,11 +410,11 @@ BOOL CRepairController::ReadLogicalSector(OUT LPVOID buffer,
     return ReadSector( m_hDisk, buffer, bufferSize, (DWORD)(tmp & 0xffffffff), (DWORD)(tmp >> 32) , SectorSzie);
 }
 
-BOOL CRepairController::WriteLogicalSector( IN LPVOID buffer,
-                     IN DWORD bufferSize,
-                     IN LONGLONG Lsn,
-	                 WORD SectorSzie
-                     )
+BOOL CRepairController::WriteLogicalSector(IN LPVOID buffer,
+	IN DWORD bufferSize,
+	LONGLONG Lsn,
+	WORD SectorSzie
+)
 /*++
 功能描述：写逻辑扇区（扇区号相对于分区开始编址）
 
@@ -431,6 +431,6 @@ BOOL CRepairController::WriteLogicalSector( IN LPVOID buffer,
     assert( tmp > 0 );
     assert( Lsn < m_VolumeTotalSectors.QuadPart );
 
-    return WriteSector( m_hDisk,buffer,bufferSize,(DWORD)(tmp & 0xffffffff),(DWORD)(tmp >> 32) , SectorSzie);
+    return WriteSector( m_hDisk, buffer, bufferSize, (DWORD)(tmp & 0xffffffff), (DWORD)(tmp >> 32) , SectorSzie);
 }
 

@@ -132,8 +132,8 @@ int _tmain(int argc, _TCHAR* argv[])
                 NULL);
     
     //初始化软件日志文件
-    fopen_s( &hLogFile,"MarkBadClusTool.log","w");
-    if( hLogFile == NULL )
+    //;
+    if(fopen_s(&hLogFile, "MarkBadClusTool.log", "a+") != 0)
     {
         printf("open log file failed!\n");
     }
@@ -305,27 +305,33 @@ int _tmain(int argc, _TCHAR* argv[])
             
             pController->PrepareUpdateBadBlockList();
             LONGLONG start=-1,len =1000;
-            printf("请输入坏扇区扩展量(建议值：%lld,这里为坏扇区前后扩展数据，最小单位为一个簇/512大小)：",p->sectorsPerCylinder.QuadPart/2);
+            printf("请输入坏扇区扩展量(建议值：%lld,这里为坏扇区前后扩展簇大小)：",p->sectorsPerCylinder.QuadPart/2);
             scanf_s("%lld",&len );
             if( len <= 0 || len >= p2->TotalSectors.QuadPart/2 )
             {
                 printf("输入值不合适，程序即将退出！\n");
                 goto lab_exit;
             }
-            printf("请输入坏扇区表（-1表示结束,地址为磁盘LBA地址):\n");
-            scanf_s("%lld",&start);
-            while( start != -1 )
+			printf("请输入坏扇区表（-1表示结束,地址为磁盘LBA地址):\n");
+			printf("选择的分区LBA地址范围为%lld-%lld\n",
+				p2->StartSector.QuadPart, p2->StartSector.QuadPart + p2->TotalSectors.QuadPart);
+            do
             {
+				scanf_s("%lld", &start);
                 LONGLONG left = 0,right = 0,tmp=0;
-                if( start < p2->StartSector.QuadPart || start >=p2->StartSector.QuadPart + p2->TotalSectors.QuadPart)
-                    continue;
+				if (start < p2->StartSector.QuadPart || start >= p2->StartSector.QuadPart + p2->TotalSectors.QuadPart)
+				{
+					printf("不合法地址跳过: %lld\n", start);
+					continue;
+				}
+                    
                 start -= p2->StartSector.QuadPart;
                 left = max(start-len,36*8);
                 right = min( start+len,p2->StartSector.QuadPart+p2->TotalSectors.QuadPart)-1;
                 if( left>right)left=right;        
                 pController->AddBadBlock( left,right-left+1 );
-                scanf_s("%lld",&start);
-            }
+                //scanf_s("%lld",&start);
+			} while (start != -1);
             printf("数据读入完成，即将进行更新！\n");
             system("PAUSE");
             pController->StartRepairProgress();

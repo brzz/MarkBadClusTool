@@ -246,12 +246,13 @@ BOOL CUtils::ReadSector(IN HANDLE hDisk,
 }
 
 
-BOOL CUtils::WriteSector(HANDLE hDisk,
-                        LPVOID buffer, 
-                        DWORD bufferSize,
-                        DWORD SectorNumberLow, 
-                        DWORD SectorNumberHigh, /* = 0 */
-	                    DWORD  SectorSzie)
+BOOL CUtils::WriteSector(IN HANDLE hDisk,
+	IN LPVOID buffer,
+	IN DWORD bufferSize,
+	IN DWORD SectorNumberLow,
+	IN DWORD SectorNumberHigh,
+	DWORD  SectorSzie
+)
 /*++
 功能描述：写入一个扇区的数据
 
@@ -269,7 +270,7 @@ BOOL CUtils::WriteSector(HANDLE hDisk,
     DWORD   bytesOffsetLow,bytesOffsetHigh,retBytes;
 	ULONGLONG   bytesOffset;
 
-    if( bufferSize < MBR_SECTOR_SIZE )
+    if( bufferSize < SectorSzie)
         return FALSE;
 #if 0
     printf("WARNING:Write to sector:%d\n",SectorNumberLow);
