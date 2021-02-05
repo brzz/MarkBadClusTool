@@ -10,11 +10,11 @@
 using namespace std;
 //类实现
 
-CNtfsController::CNtfsController(LPSTR lpszDiskPath, LONGLONG StartSector, LONGLONG NumberOfSectors)
+CNtfsController::CNtfsController(LPSTR lpszDiskPath, LONGLONG StartSector, LONGLONG NumberOfSectors, WORD SectorSzie)
 /*++
 功能描述:构造函数
 
-参数:无
+参数:WORD SectorSzie 物理磁盘的扇区大小
 
 返回值:无
 
@@ -26,13 +26,14 @@ m_MftRecordLength(0),
 m_Bitmap(NULL),
 m_BitmapLength(0),
 m_MftBitmap(NULL),
-m_MftBitmapLength(0)
+m_MftBitmapLength(0),
+m_PhysicDiskSectorSize(SectorSzie)
 {
     DbgPrint("CNtfsController constructor called!");
     BOOL    bOk = FALSE;
 
     //初始化NTFS的DBR扇区
-    bOk = ReadLogicalSector( &m_BootSect,sizeof(m_BootSect),0);
+    bOk = ReadLogicalSector( &m_BootSect, sizeof(m_BootSect), 0, SectorSzie);
     assert( bOk );
     m_ClusterSizeInBytes = m_BootSect.bpb.sectors_per_cluster * m_BootSect.bpb.bytes_per_sector;
 
@@ -61,6 +62,8 @@ VOID CNtfsController::PrepareUpdateBadBlockList()
 说明：在每次要刷新坏块链表前都要调用此函数
 --*/
 {
+	LPBYTE buffer = NULL;
+
     DbgPrint("prepare update badblocklist!");
 
     DestroyListNodes( &m_BlockInforHead.BadBlockList);
@@ -77,7 +80,7 @@ VOID CNtfsController::PrepareUpdateBadBlockList()
         goto exit;
     assert( valueLength > 0 );
     
-    LPBYTE buffer = (LPBYTE)malloc( valueLength );
+    buffer = (LPBYTE)malloc( valueLength );
     assert( buffer != NULL);
     BOOL bDataruns = FALSE;
     if( 0 != GetAttributeValue( file,AT_DATA,buffer,valueLength,&bDataruns,L"$Bad"))
@@ -705,7 +708,7 @@ BOOL CNtfsController::StartRepairProgress()
 
     //更新引导扇区数据
     ReportStateMessage("正在更新引导扇区...   ");
-    bResult = WriteLogicalSector( &m_BootSect,sizeof(m_BootSect),0);
+    bResult = WriteLogicalSector( &m_BootSect, sizeof(m_BootSect), 0 ,this->m_PhysicDiskSectorSize);
     if( !bResult )
     {
         DbgPrint("update boot sector failed!");
@@ -1016,7 +1019,8 @@ BOOL CNtfsController::ReadLogicalCluster( OUT LPVOID Buffer,
         {
             bOk = ReadLogicalSector( (LPBYTE)Buffer + i * sector_size,
                 sector_size,
-                Lcn * sectors_per_cluster + i);
+                Lcn * sectors_per_cluster + i,
+				this->m_PhysicDiskSectorSize);
             if( bOk )break;
         }
         if( !bOk )
@@ -1061,7 +1065,8 @@ BOOL CNtfsController::WriteLogicalCluster( IN LPVOID Buffer,
         {
             bOk = WriteLogicalSector( (LPBYTE)buf + i * sector_size,
                 sector_size,
-                Lcn * sectors_per_cluster + i);
+                Lcn * sectors_per_cluster + i, 
+				this->m_PhysicDiskSectorSize);
             if( bOk )break;
         }
         if( !bOk )
@@ -1637,6 +1642,7 @@ BOOL CNtfsController::InitBitmap()
         失败返回FALSE
 --*/
 {
+	LPVOID buffer = NULL;
     BOOL bResult = TRUE;
 
     NTFS_FILE file = OpenNtfsFile( FILE_Bitmap );
@@ -1653,7 +1659,7 @@ BOOL CNtfsController::InitBitmap()
         goto exit;
     }
 
-    LPVOID buffer = malloc( length );
+    buffer = malloc( length );
     assert( buffer != NULL );
     BOOL bDataruns = FALSE;
     if( 0 != GetAttributeValue( file,AT_DATA,buffer,length,&bDataruns ))
@@ -2569,14 +2575,17 @@ PFILE_INFORMATION CNtfsController::InitNtfsFile( IN LPVOID MftRecordCluster,IN D
     if( (pRecordHeader->base_mft_record & 0x0000ffffffffffffull)!= 0 )
         return NULL;
 
+	//Fixup Value lcqomit
     PWORD   pUsa = (PWORD)((DWORD_PTR)pRecordHeader + pRecordHeader->usa_ofs);
     WORD    cUsa = pRecordHeader->usa_count;
 
     //用USA数组更新扇区末尾两个字节的数据
     for( WORD i = 1;i < cUsa;i++)
     {
-        assert( *(PWORD)((DWORD_PTR)pRecordHeader + i * m_BootSect.bpb.bytes_per_sector - sizeof(WORD)) == pUsa[0]);
-        *(PWORD)((DWORD_PTR)pRecordHeader + i * m_BootSect.bpb.bytes_per_sector - sizeof(WORD)) = pUsa[i];
+		//(m_BootSect.bpb.bytes_per_sector)
+		//m_BootSect.bpb.bytes_per_sector
+        assert( *(PWORD)((DWORD_PTR)pRecordHeader + i * 512 - sizeof(WORD)) == pUsa[0]);
+        *(PWORD)((DWORD_PTR)pRecordHeader + i * 512 - sizeof(WORD)) = pUsa[i];
     }
 
     PFILE_INFORMATION   pFileInfor = (PFILE_INFORMATION )
@@ -2850,33 +2859,74 @@ BOOL CNtfsController::ReadMftRecord( IN LONGLONG RecordId,OUT PVOID Buffer,IN DW
 
     BOOL bResult = TRUE;
 
-    //计算RecordId对应文件记录所在的VCN
-    LONGLONG    vcn = m_MftRecordLength / m_BootSect.bpb.bytes_per_sector * RecordId
-        / m_BootSect.bpb.sectors_per_cluster;
+	//lcq note:一个文件记录可以有多个扇区，同样一个扇区也可以存储多个文件记录
+	
+    //RecordId -> VCN
+	LONGLONG    vcn = -1;
+	LONGLONG   offsetInSectors = -1;
+	if (m_MftRecordLength >= m_BootSect.bpb.bytes_per_sector)
+	{
+		//比如在512N硬盘中 一个文件记录是1024字节，占用2个512字节的扇区。
+		vcn = m_MftRecordLength / m_BootSect.bpb.bytes_per_sector * RecordId
+			/ m_BootSect.bpb.sectors_per_cluster;
 
-    //转换为LCN,出错返回失败
-    LONGLONG    lcn = VcnToLcn( vcn,m_MftDataRuns,m_MftDataRunsLength );
+		offsetInSectors = RecordId                                           //文件记录号
+			* (m_MftRecordLength / m_BootSect.bpb.bytes_per_sector) //每文件记录扇区数
+			% m_BootSect.bpb.sectors_per_cluster;                   //每簇扇区数
+	}
+	else
+	{
+		//在4KN硬盘中，一个扇区可以存储4个1024字节的文件记录。
+		vcn = (RecordId / (m_BootSect.bpb.bytes_per_sector / m_MftRecordLength)) / m_BootSect.bpb.sectors_per_cluster;
+		offsetInSectors = (RecordId % (m_BootSect.bpb.bytes_per_sector / m_MftRecordLength));
+	}
+
+    //VCN -> LCN
+    LONGLONG    lcn = VcnToLcn(vcn, m_MftDataRuns, m_MftDataRunsLength );
     if( lcn == -1 )
     {
         DbgPrint("vcn to lcn failed!\n");
 
         return FALSE;
     }
-
-    LONGLONG   offsetInSectors = RecordId                                           //文件记录号
-        * (m_MftRecordLength / m_BootSect.bpb.bytes_per_sector) //每文件记录扇区数
-        % m_BootSect.bpb.sectors_per_cluster;                   //每簇扇区数
     bResult = TRUE;
-    for( DWORD i = 0;i < (m_MftRecordLength / m_BootSect.bpb.bytes_per_sector);i++)
-    {
-        bResult = ReadLogicalSector( (LPVOID)((DWORD_PTR)Buffer + i * m_BootSect.bpb.bytes_per_sector),
-            m_BootSect.bpb.bytes_per_sector,
-            lcn * m_BootSect.bpb.sectors_per_cluster + offsetInSectors + i );
-        if( !bResult ){
-            printf("read failed!\n");
-            goto exit;
-        }
-    }
+
+	//读取数据
+	if (m_MftRecordLength >= m_BootSect.bpb.bytes_per_sector)
+	{
+		//一个数据位于多个扇区
+		for (DWORD i = 0; i < (m_MftRecordLength / m_BootSect.bpb.bytes_per_sector); i++)
+		{
+			bResult = ReadLogicalSector((LPVOID)((DWORD_PTR)Buffer + i * m_BootSect.bpb.bytes_per_sector),
+				m_BootSect.bpb.bytes_per_sector,
+				lcn * m_BootSect.bpb.sectors_per_cluster + offsetInSectors + i,
+				this->m_PhysicDiskSectorSize);
+			if (!bResult) {
+				printf("read failed!\n");
+				goto exit;
+			}
+		}
+	}
+	else
+	{
+		//一个扇区存储多个数据
+		LPVOID  tmpbuffer = malloc(this->m_PhysicDiskSectorSize);
+		if (tmpbuffer == NULL) return 0;
+
+		bResult = ReadLogicalSector(tmpbuffer, this->m_PhysicDiskSectorSize, lcn,
+			this->m_PhysicDiskSectorSize);
+
+		if (!bResult) {
+			printf("read failed!\n");
+			goto exit;
+		}
+
+		memcpy_s(Buffer, m_MftRecordLength, 
+			((BYTE*)tmpbuffer + offsetInSectors*m_MftRecordLength), m_MftRecordLength);
+
+		free(tmpbuffer);
+	}
+    
 
     bResult = ntfs_is_file_recordp(Buffer);
     if( bResult==FALSE){
@@ -2941,7 +2991,8 @@ BOOL CNtfsController::WriteMftRecord( IN LONGLONG RecordId,IN PVOID Buffer,IN DW
     {
         bResult = WriteLogicalSector( (LPVOID)((DWORD_PTR)Buffer + i * m_BootSect.bpb.bytes_per_sector),
             m_BootSect.bpb.bytes_per_sector,
-            lcn * m_BootSect.bpb.sectors_per_cluster + offsetInSectors + i );
+            lcn * m_BootSect.bpb.sectors_per_cluster + offsetInSectors + i ,
+			this->m_PhysicDiskSectorSize);
         if( !bResult ){
             printf("write failed!\n");
             goto exit;

@@ -27,6 +27,7 @@ struct gpt_header //GPT表头512字节 4Kn硬盘请另请高明
 	uint8_t pation_table_size[4];//单个分区表占用字节数
 	uint8_t pation_table_crc[4];//分区表的CRC校验
 	uint8_t notuse[420];//保留的420字节
+	uint8_t nousefor4k[3584];//4KN硬盘填充用
 };//GPT表头结构
 
 struct partition_table//分区表是128字节

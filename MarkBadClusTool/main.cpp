@@ -51,6 +51,44 @@ VOID ShowStateMessage( DWORD code,DWORD_PTR para1,DWORD_PTR para2 )
     }
 }
 
+/*
+PS > fsutil fsinfo ntfsinfo M:
+NTFS 卷序列号:             0x94928eb9928e9f7c
+NTFS 版本:                 3.1
+LFS 版本:                  2.0
+扇区数量:                  0x00000000000063ff
+簇总数:                  0x00000000000063ff
+可用簇:                  0x0000000000005c35
+保留总数:                  0x0000000000000581
+每个扇区字节数:            4096
+每个物理扇区字节数:        4096
+每个簇字节数:            4096
+每个 FileRecord 段字节数:  1024
+每个 FileRecord 段簇数:  0
+Mft 有效数据长度:          0x0000000000040000
+Mft 起始 Lcn:              0x0000000000002155
+Mft2 起始 Lcn:             0x0000000000000002
+Mft 区域起始:              0x0000000000002180
+Mft 区域结尾:              0x0000000000002de0
+最大设备剪裁盘区计数:     4096
+最大设备剪裁字节计数:       0xffffffff
+最大卷剪裁盘区计数:     62
+最大卷剪裁字节计数:       0x40000000
+Resource Manager 标识符:     63AEA7B1-66E1-11EB-A40E-B88198466C3D
+PS > fsutil fsinfo sectorInfo M:
+LogicalBytesPerSector :                                 4096
+PhysicalBytesPerSectorForAtomicity :                    4096
+PhysicalBytesPerSectorForPerformance :                  4096
+FileSystemEffectivePhysicalBytesPerSectorForAtomicity : 4096
+设备校准 :                                        已校准(0x000)
+设备上的分区校准:                                  已校准(0x000)
+无搜寻惩罚
+支持剪裁
+不支持 DAX
+已精简预配，SlabSizeInBytes:                8388608
+
+*/
+
 void ShowLogo()
 {
     printf("                     分区坏簇标记工具 V%d.%d\n",MAINVERSION,SUBVERSION );
@@ -123,12 +161,12 @@ int _tmain(int argc, _TCHAR* argv[])
     printf("\n请输入设备ID:");
     scanf_s("%d",&id);
     diskList.GetDiskByIndex( id,&p );
-	if (p->BytesPerSector != 512)
-	{
-		printf("仅支持512扇区硬盘!\r\n");
-		goto lab_exit;
-	}
-    pVolumeList = new CVolumeList( (LPSTR)p->path,p->index );
+	//if (p->BytesPerSector != 512)
+	//{
+	//	printf("仅支持512扇区硬盘!\r\n");
+	//	goto lab_exit;
+	//}
+    pVolumeList = new CVolumeList(p);
     PVOLUME_NODE    p2 = pVolumeList->GetFirstVolume();
     if(p2 == NULL)
     {
@@ -198,7 +236,7 @@ int _tmain(int argc, _TCHAR* argv[])
         }
     }
     if( p2->Type == PARTITION_TYPE_NTFS || p2->Type == PARTITION_TYPE_NTFS_HIDDEN )
-        pController = new CNtfsController( (LPSTR)p->path,p2->StartSector.QuadPart,p2->TotalSectors.QuadPart);
+        pController = new CNtfsController( (LPSTR)p->path, p2->StartSector.QuadPart, p2->TotalSectors.QuadPart, p->BytesPerSector);
     else
     {
         printf("不支持此分区类型,程序即将退出！\n");

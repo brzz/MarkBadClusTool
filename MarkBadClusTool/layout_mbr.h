@@ -122,7 +122,9 @@ typedef struct _MBR_SECTOR
     BYTE reserved[2];               /*保留，常为0*/
     PARTITION_TABLE_ENTRY dpt[4];   /*分区表，包含4个分区表项*/
     WORD end_flag;                  /*引导扇区结束标志，恒为0xAA55*/
+	BYTE UNUSEFOR4K[3584];
 }MBR_SECTOR,*PMBR_SECTOR;
+
 
 typedef struct _EBR_SECTOR
 {

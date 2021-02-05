@@ -13,6 +13,8 @@
 #include<windows.h>
 #include"utils.h"
 
+#include "disk_list.h"
+
 typedef struct _VOLUME_NODE
 {
     LIST_ENTRY  List;               //链表，用于生成卷结点表
@@ -31,15 +33,18 @@ typedef struct _VOLUME_NODE
 class CVolumeList:public CUtils
 {
 private:
-    WORD        m_VolumeCount;      //磁盘中卷数量
-    LIST_ENTRY  m_VolumeListHead;   //卷结点链表头
-    HANDLE      m_hDisk;
-    DWORD       m_DiskId;
-    DWORD       m_tbl_VolumeOwnerDiskId[26]; //分区所属磁盘号 映射表
-    DWORDLONG   m_tbl_VolumeOffset[26]; //保存分区相对磁盘起始处的偏移(字节）映射表
-
+    WORD         m_VolumeCount;      //磁盘中卷数量
+    LIST_ENTRY   m_VolumeListHead;   //卷结点链表头
+    HANDLE       m_hDisk;
+    DWORD        m_DiskId;
+    DWORD        m_tbl_VolumeOwnerDiskId[26]; //分区所属磁盘号 映射表
+    DWORDLONG    m_tbl_VolumeOffset[26]; //保存分区相对磁盘起始处的偏移(字节）映射表
+	
+	
 public:
-    CVolumeList( LPSTR DiskPath,DWORD DiskId);   //构造函数
+    //CVolumeList( LPSTR DiskPath,DWORD DiskId);
+	CVolumeList(PDISK_DEVICE pdisk);
+	//构造函数
     ~CVolumeList();                 //柝构函数，释放资源
     WORD GetVolumeCount();
     BOOL GetVolumeByIndex( IN WORD index,OUT PVOLUME_NODE *result );
@@ -47,11 +52,14 @@ public:
     PVOLUME_NODE GetNextVolume( IN PVOLUME_NODE curVolume );
     VOID UpdateVolumeList();
 
+	PDISK_DEVICE m_pdisk;   //父硬盘信息
+
 private:
     VOID ReleaseAllResources();
     VOID InitVolumeList();
-    DWORD SearchMbrVolume( DWORD BaseSector,DWORD BaseEbrSector = 0 );
-	DWORD SearchGPTVolume(DWORD BaseSector, MBR_SECTOR  mbrSector);
+    DWORD SearchMbrVolume(PDISK_DEVICE pdisk, DWORD BaseSector,DWORD BaseEbrSector = 0 );
+	DWORD SearchGPTVolume(PDISK_DEVICE pdisk, DWORD BaseSector, MBR_SECTOR  mbrSector);
+	
     BOOL IsVolumeTypeSupported( BYTE type );
 };
 

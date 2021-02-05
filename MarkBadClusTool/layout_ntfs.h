@@ -79,6 +79,7 @@ typedef struct {
 /*0x1fe*/WORD end_of_sector_marker;         /* End of bootsector magic. Always is
                                             0xaa55 in little endian. */
 /* sizeof() = 512 (0x200) bytes */
+BYTE UNUSE4k[3584];
 }NTFS_BOOT_SECTOR,*PNTFS_BOOT_SECTOR;
 
 

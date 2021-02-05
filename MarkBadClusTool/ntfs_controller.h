@@ -56,13 +56,14 @@ private:
     LONGLONG        m_BitmapLength;             //Bitmap实际大小（单位：字节）
     LPBYTE          m_MftBitmap;                //$MFT的Bitmap属性数据，ReleaseAllResources中释放
     LONGLONG        m_MftBitmapLength;          //m_MftBitmap的长度（字节）
+	WORD            m_PhysicDiskSectorSize;     //物理硬盘的扇区大小(字节)
 protected:
     //类成员变量
 
 public:
     //公共接口函数
-    CNtfsController( LPSTR lpszDiskPath,LONGLONG StartSector,LONGLONG NumberOfSectors);
-    virtual ~CNtfsController();
+    CNtfsController( LPSTR lpszDiskPath,LONGLONG StartSector,LONGLONG NumberOfSectors, WORD SectorSzie);
+	virtual ~CNtfsController();
     virtual VOID PrepareUpdateBadBlockList();
     virtual VOID AddBadBlock( LONGLONG StartLsn,LONGLONG NumberOfSectors );
     virtual VOID AddDeadBlock( LONGLONG StartLsn,LONGLONG NumberOfSectors );

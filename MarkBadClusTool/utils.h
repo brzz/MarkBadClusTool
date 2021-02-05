@@ -2,6 +2,7 @@
 //author:lzc
 //date:2012/11/07
 //e-mail:hackerlzc@126.com
+//20210205 lcq
 
 #pragma once
 #ifndef _UTILS_H
@@ -44,13 +45,15 @@ protected:
                      OUT LPVOID buffer,
                      IN DWORD bufferSize,
                      IN DWORD SectorNumberLow,
-                     IN DWORD SectorNumberHigh = 0
+                     IN DWORD SectorNumberHigh,
+		             DWORD  SectorSzie
                      );
     BOOL WriteSector( IN HANDLE hDisk,
                      IN LPVOID buffer,
                      IN DWORD bufferSize,
                      IN DWORD SectorNumberLow,
-                     IN DWORD SectorNumberHigh = 0
+                     IN DWORD SectorNumberHigh,
+	                 DWORD  SectorSzie
                      );
     BOOL CopyBlock( IN HANDLE hDisk,
                     IN ULONGLONG SourceSector,

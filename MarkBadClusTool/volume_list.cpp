@@ -15,7 +15,7 @@
 //类实现
 
 
-CVolumeList::CVolumeList(LPSTR DiskPath,DWORD DiskId)
+CVolumeList::CVolumeList(PDISK_DEVICE pdisk)
 /*++
 功能描述：构造函数
 
@@ -25,10 +25,15 @@ CVolumeList::CVolumeList(LPSTR DiskPath,DWORD DiskId)
 返回值：无
 --*/
 :m_VolumeCount(0),
-m_DiskId(DiskId)
+m_pdisk(pdisk),
+m_DiskId(pdisk->index)
 {
+	//LPSTR DiskPath,DWORD DiskId
+	//(LPSTR)p->path, p->index
+	
+	LPSTR DiskPath = (LPSTR)pdisk->path;
     assert( DiskPath != NULL);
-
+	
     m_hDisk = CreateFile( DiskPath,
                         GENERIC_READ,
                         FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -43,7 +48,7 @@ m_DiskId(DiskId)
     memset( &m_tbl_VolumeOwnerDiskId,0xcc,sizeof(m_tbl_VolumeOwnerDiskId));
     CHAR volumePath[]="\\\\.\\C:";
     DWORD bytesReturned = 0;
-    for( CHAR letter = 'C';letter <='Z';letter++)
+    for( CHAR letter = 'A';letter <='Z';letter++)
     {
         volumePath[4]=letter;
         HANDLE hVolume = CreateFile( volumePath,
@@ -243,11 +248,11 @@ VOID CVolumeList::InitVolumeList()
 --*/
 {
     InitializeListHead( &m_VolumeListHead );
-    m_VolumeCount = (WORD)SearchMbrVolume( 0 );
+    m_VolumeCount = (WORD)SearchMbrVolume(this->m_pdisk, 0 );
 
 }
 
-DWORD CVolumeList::SearchGPTVolume(DWORD BaseSector, MBR_SECTOR  mbrSector)
+DWORD CVolumeList::SearchGPTVolume(PDISK_DEVICE pdisk, DWORD BaseSector, MBR_SECTOR  mbrSector)
 {
 	//LCQ 2020-02-29 GUID
 	BOOL    bOk = FALSE;
@@ -258,14 +263,14 @@ DWORD CVolumeList::SearchGPTVolume(DWORD BaseSector, MBR_SECTOR  mbrSector)
 	printf("检测到是现代GPT磁盘！\n");
 
 	//GPT一般起始于1扇区，找到相对位置
-	bOk = ReadSector(m_hDisk, &gptheader, sizeof(gpt_header), mbrSector.dpt[0].sectors_precding);
+	bOk = ReadSector(m_hDisk, &gptheader, pdisk->BytesPerSector, mbrSector.dpt[0].sectors_precding, 0, pdisk->BytesPerSector);
 	if (!bOk)
 	{
 		DbgPrint("Read sector failed!");
 		return 0;
 	}
 	show_gpt_header(&gptheader);
-	printf("\n\n这块硬盘有效大小为 %lf GB\n", (double)uint8to64(gptheader.backup_lba) * 512 / 1024 / 1024 / 1024);
+	printf("\n\n这块硬盘有效大小为 %lf GB\n", (double)uint8to64(gptheader.backup_lba) * pdisk->BytesPerSector / 1024 / 1024 / 1024);
 
 	printf("\n\n-------------读取分区表项:-------------\n\n");
 	ULONGLONG baseaddr = (ULONGLONG)uint8to64(gptheader.pation_table_first);//GPT分区表起始位置
@@ -381,7 +386,8 @@ DWORD CVolumeList::SearchGPTVolume(DWORD BaseSector, MBR_SECTOR  mbrSector)
 
 }
 
-DWORD CVolumeList::SearchMbrVolume(DWORD BaseSector, DWORD BaseEbrSector /*= 0*/)
+
+DWORD CVolumeList::SearchMbrVolume(PDISK_DEVICE pdisk, DWORD BaseSector, DWORD BaseEbrSector /*= 0*/)
 /*++
 功能描述：搜索磁盘中的卷，建立卷信息链表
 
@@ -409,7 +415,13 @@ DWORD CVolumeList::SearchMbrVolume(DWORD BaseSector, DWORD BaseEbrSector /*= 0*/
         return 0;
     }
 
-    bOk = ReadSector( m_hDisk,&mbrSector,sizeof( mbrSector),BaseSector);
+	if (pdisk->BytesPerSector > sizeof(MBR_SECTOR))
+	{
+		DbgPrint("Disk Sector too large!");
+		return 0;
+	}
+	
+    bOk = ReadSector( m_hDisk, &mbrSector, pdisk->BytesPerSector, BaseSector, 0, pdisk->BytesPerSector);
     if( !bOk )
     {
         DbgPrint("Read sector failed!");
@@ -426,11 +438,11 @@ DWORD CVolumeList::SearchMbrVolume(DWORD BaseSector, DWORD BaseEbrSector /*= 0*/
 	if (mbrSector.dpt[0].partition_type_indicator == Not_MBR_isGUID)
 	{
 		//Is not MBR DISK
-		SearchGPTVolume(0, mbrSector);
+		SearchGPTVolume(pdisk, 0, mbrSector);
 	}
 	else
 	{
-		DbgPrint("lency MBR disk dected!");
+		DbgPrint("Legacy MBR disk dected!");
 		printf("检测到是远古MBR磁盘！\n");
 		for (i = 0; i < 4; i++)
 		{
@@ -467,7 +479,7 @@ DWORD CVolumeList::SearchMbrVolume(DWORD BaseSector, DWORD BaseEbrSector /*= 0*/
 
 				//搜索分区对应的盘符
 				node->VolumeLetter = '-';
-				for (CHAR letter = 'C'; letter <= 'Z'; letter++)
+				for (CHAR letter = 'A'; letter <= 'Z'; letter++)
 				{
 					if (m_tbl_VolumeOwnerDiskId[letter - 'A'] == m_DiskId &&
 						m_tbl_VolumeOffset[letter - 'A'] == node->StartSector.QuadPart*MBR_SECTOR_SIZE)
@@ -488,7 +500,7 @@ DWORD CVolumeList::SearchMbrVolume(DWORD BaseSector, DWORD BaseEbrSector /*= 0*/
 					mbrSector.dpt[i].partition_type_indicator ==
 					PARTITION_TYPE_EXTENDED_SMALL)
 				{
-					VolumeCount += SearchMbrVolume(mbrSector.dpt[i].sectors_precding + BaseEbrSector,
+					VolumeCount += SearchMbrVolume(pdisk, mbrSector.dpt[i].sectors_precding + BaseEbrSector,
 						BaseEbrSector > 0 ? BaseEbrSector : mbrSector.dpt[i].sectors_precding);
 				}
 			}//end if

@@ -350,6 +350,8 @@ BOOL CRepairController::ProbeForRepair()
     return FALSE;
 }
 
+
+
 VOID CRepairController::AddBadBlock( LONGLONG Lcn,LONGLONG NumberOfSectors )
 /*++
 功能描述：添加一个坏块区域，更新内部的链表结构
@@ -382,10 +384,12 @@ VOID AddDeadBlock( LONGLONG StartLsn,LONGLONG NumberOfSectors )
 {
 
 }
-BOOL CRepairController::ReadLogicalSector(OUT LPVOID buffer,
-                     IN DWORD bufferSize,
-                     IN LONGLONG Lsn
-                     )
+
+BOOL CRepairController::ReadLogicalSector(OUT LPVOID buffer, 
+	IN DWORD bufferSize, 
+	LONGLONG Lsn, 
+	WORD SectorSzie
+)
 /*++
 功能描述：读逻辑扇区（扇区号相对于分区开始编址）
 
@@ -394,7 +398,7 @@ BOOL CRepairController::ReadLogicalSector(OUT LPVOID buffer,
     buffer:输出缓冲区，大小至少为一个扇区
     bufferSize:输出缓冲区buffer的大小
     Lsn:逻辑扇区号
-
+	SectorSzie: 物理硬盘扇区大小
 返回值：成功返回TRUE，失败返回FALSE
 
 --*/
@@ -403,12 +407,13 @@ BOOL CRepairController::ReadLogicalSector(OUT LPVOID buffer,
     assert( tmp > 0 );
     assert( Lsn < m_VolumeTotalSectors.QuadPart );
 
-    return ReadSector( m_hDisk,buffer,bufferSize,(DWORD)(tmp & 0xffffffff),(DWORD)(tmp >> 32) );
+    return ReadSector( m_hDisk, buffer, bufferSize, (DWORD)(tmp & 0xffffffff), (DWORD)(tmp >> 32) , SectorSzie);
 }
 
 BOOL CRepairController::WriteLogicalSector( IN LPVOID buffer,
                      IN DWORD bufferSize,
-                     IN LONGLONG Lsn
+                     IN LONGLONG Lsn,
+	                 WORD SectorSzie
                      )
 /*++
 功能描述：写逻辑扇区（扇区号相对于分区开始编址）
@@ -426,6 +431,6 @@ BOOL CRepairController::WriteLogicalSector( IN LPVOID buffer,
     assert( tmp > 0 );
     assert( Lsn < m_VolumeTotalSectors.QuadPart );
 
-    return WriteSector( m_hDisk,buffer,bufferSize,(DWORD)(tmp & 0xffffffff),(DWORD)(tmp >> 32) );
+    return WriteSector( m_hDisk,buffer,bufferSize,(DWORD)(tmp & 0xffffffff),(DWORD)(tmp >> 32) , SectorSzie);
 }
 

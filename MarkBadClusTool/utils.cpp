@@ -3,6 +3,8 @@
 //date:2012/11/07
 //e-mail:hackerlzc@126.com
 
+//20210205 lcq
+
 #include"stdafx.h"
 #include<windows.h>
 #include<winioctl.h>
@@ -188,51 +190,68 @@ BYTE CUtils::CompressLongLong( LONGLONG x,BOOL bSigned )
     return result;
 }
 
-BOOL CUtils::ReadSector(HANDLE hDisk,
-                        LPVOID buffer, 
-                        DWORD bufferSize,
-                        DWORD SectorNumberLow, 
-                        DWORD SectorNumberHigh /* = 0 */)
-/*++
-功能描述：读取一个扇区的数据
 
-参数：
-    hDisk:磁盘设备句柄
-    buffer:输出缓冲区，大小至少为一个扇区，否则返回失败
-    bufferSize:指定输出缓冲区的大小
-    SectorNumberLow:扇区号的低32位
-    SectorNumberHigh:扇区号的高32位，默认值为0
 
-返回值：成功返回TRUE，失败返回FALSE
+BOOL CUtils::ReadSector(IN HANDLE hDisk,
+	OUT LPVOID buffer, 
+	IN DWORD bufferSize,
+	IN DWORD SectorNumberLow, 
+	IN DWORD SectorNumberHigh, 
+	DWORD SectorSzie
+)
 
---*/
+	/*++
+	功能描述：读取一个扇区的数据
+
+	参数：
+	hDisk:磁盘设备句柄
+	buffer:输出缓冲区，大小至少为一个扇区，否则返回失败
+	bufferSize:指定输出缓冲区的大小
+	SectorNumberLow:扇区号的低32位
+	SectorNumberHigh:扇区号的高32位，默认值为0
+
+	返回值：成功返回TRUE，失败返回FALSE
+
+	--*/
 {
-    DWORD   bytesOffsetLow,bytesOffsetHigh,retBytes;
+	DWORD   bytesOffsetLow, bytesOffsetHigh, retBytes;
+	ULONGLONG   bytesOffset;
 
-    if( bufferSize < MBR_SECTOR_SIZE )
-        return FALSE;
+	if (bufferSize < SectorSzie)
+		return FALSE;
+	
+	//lcq: 这里按照512字节一扇区计算字节偏移，是有问题的。
+	//bytesOffsetHigh = (SectorNumberHigh << 9) | ((SectorNumberLow & 0xff800000) >> 23);
+	//bytesOffsetLow = SectorNumberLow << 9;
+	//更正多字节一扇区兼容模式
+	bytesOffset = SectorNumberHigh << 32 | SectorNumberLow;
+	bytesOffset = bytesOffset*SectorSzie;
+	//(DWORD)(tmp & 0xffffffff), (DWORD)(tmp >> 32)
+	bytesOffsetLow = (DWORD)(bytesOffset & 0xffffffff);
+	bytesOffsetHigh = (DWORD)(bytesOffset >> 32);
 
-    bytesOffsetHigh = (SectorNumberHigh << 9 ) | ((SectorNumberLow & 0xff800000) >> 23);
-    bytesOffsetLow = SectorNumberLow << 9;
-    if( INVALID_SET_FILE_POINTER == 
-           SetFilePointer( hDisk,
-                            bytesOffsetLow,
-                            (PLONG)&bytesOffsetHigh,
-                            FILE_BEGIN ))
-    {
-        ShowError( GetLastError());
-        return FALSE;
-    }
 
-    return ReadFile( hDisk,buffer,MBR_SECTOR_SIZE,&retBytes,NULL);
+	if (INVALID_SET_FILE_POINTER ==
+		SetFilePointer(hDisk,
+			bytesOffsetLow,
+			(PLONG)&bytesOffsetHigh,
+			FILE_BEGIN))
+	{
+		ShowError(GetLastError());
+		return FALSE;
+	}
+
+	return ReadFile(hDisk, buffer, SectorSzie, &retBytes, NULL);
 
 }
+
 
 BOOL CUtils::WriteSector(HANDLE hDisk,
                         LPVOID buffer, 
                         DWORD bufferSize,
                         DWORD SectorNumberLow, 
-                        DWORD SectorNumberHigh /* = 0 */)
+                        DWORD SectorNumberHigh, /* = 0 */
+	                    DWORD  SectorSzie)
 /*++
 功能描述：写入一个扇区的数据
 
@@ -248,6 +267,7 @@ BOOL CUtils::WriteSector(HANDLE hDisk,
 --*/
 {
     DWORD   bytesOffsetLow,bytesOffsetHigh,retBytes;
+	ULONGLONG   bytesOffset;
 
     if( bufferSize < MBR_SECTOR_SIZE )
         return FALSE;
@@ -262,8 +282,19 @@ BOOL CUtils::WriteSector(HANDLE hDisk,
     return TRUE;
 #endif
 #if 1
-    bytesOffsetHigh = (SectorNumberHigh << 9 ) | ((SectorNumberLow & 0xff800000) >> 23);
-    bytesOffsetLow = SectorNumberLow << 9;
+    //bytesOffsetHigh = (SectorNumberHigh << 9 ) | ((SectorNumberLow & 0xff800000) >> 23);
+    //bytesOffsetLow = SectorNumberLow << 9;
+
+	//lcq: 这里按照512字节一扇区计算字节偏移，是有问题的。
+	//bytesOffsetHigh = (SectorNumberHigh << 9) | ((SectorNumberLow & 0xff800000) >> 23);
+	//bytesOffsetLow = SectorNumberLow << 9;
+	//更正多字节一扇区兼容模式
+	bytesOffset = SectorNumberHigh << 32 | SectorNumberLow;
+	bytesOffset = bytesOffset*SectorSzie;
+	//(DWORD)(tmp & 0xffffffff), (DWORD)(tmp >> 32)
+	bytesOffsetLow = (DWORD)(bytesOffset & 0xffffffff);
+	bytesOffsetHigh = (DWORD)(bytesOffset >> 32);
+
     if( INVALID_SET_FILE_POINTER == 
            SetFilePointer( hDisk,
                             bytesOffsetLow,
@@ -274,7 +305,7 @@ BOOL CUtils::WriteSector(HANDLE hDisk,
         return FALSE;
     }
 
-    return WriteFile( hDisk,buffer,MBR_SECTOR_SIZE,&retBytes,NULL);
+    return WriteFile( hDisk, buffer, SectorSzie, &retBytes, NULL);
 #endif
 
 }

@@ -107,11 +107,13 @@ protected:
     //可被继承的类私有函数
     BOOL ReadLogicalSector( OUT LPVOID buffer,
                      IN DWORD bufferSize,
-                     LONGLONG Lsn
+                     LONGLONG Lsn,
+	                 WORD SectorSzie
                      );
     BOOL WriteLogicalSector( IN LPVOID buffer,
                      IN DWORD bufferSize,
-                     LONGLONG Lsn
+                     LONGLONG Lsn,
+	                 WORD SectorSzie
                      );
     virtual BOOL InitController() = 0;//初始化Controller,不同的文件系统有不同的初始化方法，真正在子类中
                                       //实现此接口，用来实现对不同文件系统的支持。
