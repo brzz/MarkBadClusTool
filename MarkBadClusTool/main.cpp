@@ -89,6 +89,69 @@ FileSystemEffectivePhysicalBytesPerSectorForAtomicity : 4096
 
 */
 
+int GetAllVolume()
+{
+	CHAR  DeviceName[MAX_PATH] = "";
+	DWORD  Error = ERROR_SUCCESS;
+	HANDLE FindHandle = INVALID_HANDLE_VALUE;
+	BOOL   Found = FALSE;
+	size_t Index = 0;
+	BOOL   Success = FALSE;
+	CHAR  VolumeName[MAX_PATH] = "";
+	int nVolumeCnt = 0;
+	//
+	//  Enumerate all volumes in the system.
+	FindHandle = FindFirstVolume(VolumeName, ARRAYSIZE(VolumeName));
+
+	if (FindHandle == INVALID_HANDLE_VALUE)
+	{
+		Error = GetLastError();
+		return 0;
+	}
+
+	for (;;)
+	{
+		//
+		//  Skip the \\?\ prefix and remove the trailing backslash.
+		if (VolumeName[0] != L'\\' ||
+			VolumeName[1] != L'\\' ||
+			VolumeName[2] != L'?' ||
+			VolumeName[3] != L'\\' ||
+			VolumeName[Index] != L'\\')
+		{
+			Error = ERROR_BAD_PATHNAME;
+			break;
+		}
+		nVolumeCnt++;
+		//vstrVolume.push_back(VolumeName);
+
+		//  Move on to the next volume.
+		Success = FindNextVolume(FindHandle, VolumeName, ARRAYSIZE(VolumeName));
+
+		if (!Success)
+		{
+			Error = GetLastError();
+
+			if (Error != ERROR_NO_MORE_FILES)
+			{
+				break;
+			}
+
+			//
+			//  Finished iterating
+			//  through all the volumes.
+			Error = ERROR_SUCCESS;
+			break;
+		}
+	}
+
+	FindVolumeClose(FindHandle);
+	FindHandle = INVALID_HANDLE_VALUE;
+
+	return nVolumeCnt;
+}
+
+
 void ShowLogo()
 {
     printf("                     分区坏簇标记工具 V%d.%d\n",MAINVERSION,SUBVERSION );
@@ -197,9 +260,10 @@ int _tmain(int argc, _TCHAR* argv[])
         goto lab_exit;
     }
     
-    CHAR path[]="\\\\.\\C:";
+    
     if( p2->VolumeLetter != '-')
     {
+		CHAR path[] = "\\\\.\\C:";
         path[4]=p2->VolumeLetter;
         printf("正在打开分区:%s\n",path+4 );
         hVolume = CreateFile( path,
@@ -237,6 +301,54 @@ int _tmain(int argc, _TCHAR* argv[])
             }
         }
     }
+	else
+	{
+		printf_s("无盘符分区\n");
+		CHAR path2[] = TEXT("\\\\?\\Harddisk%dPartition%d");
+		CHAR* path = (CHAR*)malloc(100);
+		sprintf_s(path, 100, path2, (int)p->index, p2->Index);
+
+		printf("正在打开分区:%s\n", path);
+		GetAllVolume();
+
+
+
+
+		hVolume = CreateFile(path,
+			GENERIC_READ | GENERIC_WRITE,
+			FILE_SHARE_READ | FILE_SHARE_WRITE,
+			NULL,
+			OPEN_EXISTING,
+			FILE_ATTRIBUTE_NORMAL,
+			NULL);
+		if (hVolume == INVALID_HANDLE_VALUE)
+		{
+			printf("分区打开失败,程序即将退出！\n");
+			goto lab_exit;
+		}
+		else
+		{
+			DWORD bytesReturned = 0;
+			printf("正在尝试卸载分区...\n");
+			BOOL bOk = DeviceIoControl(
+				hVolume,
+				FSCTL_DISMOUNT_VOLUME,
+				NULL,
+				0,
+				NULL,
+				0,
+				&bytesReturned,
+				NULL
+			);
+			if (bOk)
+				printf("分区成功卸载\n");
+			else
+			{
+				printf("分区卸载失败，程序即将退出！\n");
+				goto lab_exit;
+			}
+		}
+	}
     if( p2->Type == PARTITION_TYPE_NTFS || p2->Type == PARTITION_TYPE_NTFS_HIDDEN )
         pController = new CNtfsController( (LPSTR)p->path, p2->StartSector.QuadPart, p2->TotalSectors.QuadPart, p->BytesPerSector);
     else

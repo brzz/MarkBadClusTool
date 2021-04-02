@@ -117,7 +117,7 @@ WORD CVolumeList::GetVolumeCount()
     return m_VolumeCount;
 }
 
-BOOL CVolumeList::GetVolumeByIndex(WORD index, PVOLUME_NODE *result)
+BOOL CVolumeList::GetVolumeByIndex(IN WORD index, OUT PVOLUME_NODE *result)
 /*++
 功能描述：通过卷序数搜索相应卷信息结点
 

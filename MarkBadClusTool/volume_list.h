@@ -27,6 +27,7 @@ typedef struct _VOLUME_NODE
     LARGE_INTEGER TotalSectors;     //卷所包括的扇区总数
     DWORD       Reserved3;          //保留
     LPSTR       VolumeName;         //指向卷名称的字符串
+	LPSTR       VolumeGUID;         //指向卷GUID //未完成 LCQ
     LPSTR       TypeName;
 }VOLUME_NODE,*PVOLUME_NODE;
 
